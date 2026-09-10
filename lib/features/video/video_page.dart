@@ -14,6 +14,9 @@ class VideoPage extends StatefulWidget {
 
 class _VideoPageState extends State<VideoPage> {
   late final VideoController controller;
+  late final TextEditingController _targetSizeController;
+  late final TextEditingController _trimStartController;
+  late final TextEditingController _trimEndController;
 
   @override
   void initState() {
@@ -22,6 +25,9 @@ class _VideoPageState extends State<VideoPage> {
       picker: MediaPickerService(),
       engine: FfmpegVideoEngine(),
     )..addListener(_refresh);
+    _targetSizeController = TextEditingController(text: '15');
+    _trimStartController = TextEditingController(text: '0');
+    _trimEndController = TextEditingController();
   }
 
   @override
@@ -29,11 +35,38 @@ class _VideoPageState extends State<VideoPage> {
     controller
       ..removeListener(_refresh)
       ..dispose();
+    _targetSizeController.dispose();
+    _trimStartController.dispose();
+    _trimEndController.dispose();
     super.dispose();
   }
 
   void _refresh() {
     if (mounted) setState(() {});
+  }
+
+  Future<void> _pickVideo() async {
+    await controller.pickVideo();
+    final info = controller.info;
+    if (info != null) {
+      _trimStartController.text = '0';
+      _trimEndController.text = info.durationSeconds.toStringAsFixed(2);
+    }
+  }
+
+  Future<void> _run(VideoOperation operation) async {
+    final targetText = _targetSizeController.text.replaceAll(',', '.');
+    final startText = _trimStartController.text.replaceAll(',', '.');
+    final endText = _trimEndController.text.replaceAll(',', '.');
+
+    final target = double.tryParse(targetText);
+    if (target != null) controller.setTargetSizeMb(target);
+
+    final start = double.tryParse(startText) ?? 0;
+    final end = double.tryParse(endText) ?? controller.info?.durationSeconds ?? 0;
+    controller.setTrimRange(start: start, end: end);
+
+    await controller.run(operation);
   }
 
   @override
@@ -52,7 +85,7 @@ class _VideoPageState extends State<VideoPage> {
         ),
         const SizedBox(height: 6),
         Text(
-          'Semua proses berjalan lokal di perangkat.',
+          'Semua proses berjalan lokal di perangkat tanpa upload ke server.',
           style: Theme.of(context).textTheme.bodyMedium,
         ),
         const SizedBox(height: 20),
@@ -85,7 +118,7 @@ class _VideoPageState extends State<VideoPage> {
                     FilledButton.icon(
                       onPressed: controller.isPicking || controller.isProcessing
                           ? null
-                          : controller.pickVideo,
+                          : _pickVideo,
                       icon: const Icon(Icons.video_file_rounded),
                       label: Text(controller.input == null ? 'Pilih Video' : 'Ganti'),
                     ),
@@ -107,6 +140,115 @@ class _VideoPageState extends State<VideoPage> {
                     ],
                   ),
                 ],
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(18),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Smart Controls',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Nilai di bawah dipakai oleh Target Size, Resize, Trim, dan Change FPS.',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+                const SizedBox(height: 14),
+                Wrap(
+                  spacing: 12,
+                  runSpacing: 12,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    SizedBox(
+                      width: 170,
+                      child: TextField(
+                        controller: _targetSizeController,
+                        enabled: !controller.isProcessing,
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        decoration: const InputDecoration(
+                          labelText: 'Target size (MB)',
+                          border: OutlineInputBorder(),
+                          helperText: 'Contoh: 15',
+                        ),
+                      ),
+                    ),
+                    SizedBox(
+                      width: 170,
+                      child: DropdownButtonFormField<int>(
+                        initialValue: controller.resizeHeight,
+                        decoration: const InputDecoration(
+                          labelText: 'Resize',
+                          border: OutlineInputBorder(),
+                        ),
+                        items: const [1080, 720, 480]
+                            .map((height) => DropdownMenuItem(
+                                  value: height,
+                                  child: Text('${height}p'),
+                                ))
+                            .toList(),
+                        onChanged: controller.isProcessing
+                            ? null
+                            : (value) {
+                                if (value != null) controller.setResizeHeight(value);
+                              },
+                      ),
+                    ),
+                    SizedBox(
+                      width: 170,
+                      child: DropdownButtonFormField<int>(
+                        initialValue: controller.targetFps,
+                        decoration: const InputDecoration(
+                          labelText: 'Target FPS',
+                          border: OutlineInputBorder(),
+                        ),
+                        items: const [24, 30, 60]
+                            .map((fps) => DropdownMenuItem(
+                                  value: fps,
+                                  child: Text('$fps FPS'),
+                                ))
+                            .toList(),
+                        onChanged: controller.isProcessing
+                            ? null
+                            : (value) {
+                                if (value != null) controller.setTargetFps(value);
+                              },
+                      ),
+                    ),
+                    SizedBox(
+                      width: 170,
+                      child: TextField(
+                        controller: _trimStartController,
+                        enabled: !controller.isProcessing,
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        decoration: const InputDecoration(
+                          labelText: 'Trim start (sec)',
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
+                    ),
+                    SizedBox(
+                      width: 170,
+                      child: TextField(
+                        controller: _trimEndController,
+                        enabled: !controller.isProcessing,
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        decoration: const InputDecoration(
+                          labelText: 'Trim end (sec)',
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ],
             ),
           ),
@@ -153,7 +295,7 @@ class _VideoPageState extends State<VideoPage> {
                         child: VideoToolCard(
                           operation: operation,
                           enabled: enabled,
-                          onTap: () => controller.run(operation),
+                          onTap: () => _run(operation),
                         ),
                       ))
                   .toList(),

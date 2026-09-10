@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:fileforge/core/models/media_location.dart';
 import 'package:fileforge/core/models/process_result.dart';
@@ -49,6 +50,11 @@ class FfmpegVideoEngine implements VideoEngine {
     required MediaLocation output,
     required CompressionPreset compressionPreset,
     required double durationSeconds,
+    required double targetSizeMb,
+    required int resizeHeight,
+    required int targetFps,
+    required double trimStartSeconds,
+    required double trimEndSeconds,
     required ProgressCallback onProgress,
     required LogCallback onLog,
   }) async {
@@ -58,7 +64,15 @@ class FfmpegVideoEngine implements VideoEngine {
       input: input.ffmpegPath,
       output: output.ffmpegPath,
       preset: compressionPreset,
+      durationSeconds: durationSeconds,
+      targetSizeMb: targetSizeMb,
+      resizeHeight: resizeHeight,
+      targetFps: targetFps,
+      trimStartSeconds: trimStartSeconds,
+      trimEndSeconds: trimEndSeconds,
     );
+
+    onLog('FFmpeg operation: ${operation.title}');
 
     final session = await FFmpegKit.executeWithArgumentsAsync(
       args,
@@ -125,62 +139,168 @@ class FfmpegVideoEngine implements VideoEngine {
     required String input,
     required String output,
     required CompressionPreset preset,
+    required double durationSeconds,
+    required double targetSizeMb,
+    required int resizeHeight,
+    required int targetFps,
+    required double trimStartSeconds,
+    required double trimEndSeconds,
   }) {
+    final commonInput = ['-y', '-i', input];
+
     return switch (operation) {
       VideoOperation.compress => [
-          '-y',
-          '-i', input,
+          ...commonInput,
           '-map', '0:v:0',
           '-map', '0:a?',
           '-c:v', 'libx264',
           '-preset', 'veryfast',
           '-crf', preset.crf.toString(),
+          '-pix_fmt', 'yuv420p',
           '-c:a', 'aac',
           '-b:a', preset.audioBitrate,
           '-movflags', '+faststart',
           output,
         ],
+      VideoOperation.targetSize => _targetSizeArguments(
+          input: input,
+          output: output,
+          durationSeconds: durationSeconds,
+          targetSizeMb: targetSizeMb,
+        ),
+      VideoOperation.whatsapp => [
+          ...commonInput,
+          '-map', '0:v:0',
+          '-map', '0:a?',
+          '-vf', 'scale=-2:720,fps=30',
+          '-c:v', 'libx264',
+          '-preset', 'veryfast',
+          '-crf', '28',
+          '-pix_fmt', 'yuv420p',
+          '-c:a', 'aac',
+          '-b:a', '96k',
+          '-movflags', '+faststart',
+          output,
+        ],
       VideoOperation.extractAudio => [
-          '-y',
-          '-i', input,
+          ...commonInput,
           '-vn',
           '-c:a', 'libmp3lame',
           '-b:a', '192k',
           output,
         ],
       VideoOperation.convertMp4 => [
-          '-y',
-          '-i', input,
+          ...commonInput,
           '-map', '0:v:0',
           '-map', '0:a?',
           '-c:v', 'libx264',
           '-preset', 'veryfast',
           '-crf', '23',
+          '-pix_fmt', 'yuv420p',
           '-c:a', 'aac',
           '-b:a', '160k',
           '-movflags', '+faststart',
           output,
         ],
       VideoOperation.removeAudio => [
-          '-y',
-          '-i', input,
+          ...commonInput,
           '-map', '0:v:0',
           '-c:v', 'libx264',
           '-preset', 'veryfast',
           '-crf', '23',
+          '-pix_fmt', 'yuv420p',
           '-an',
           '-movflags', '+faststart',
           output,
         ],
       VideoOperation.toGif => [
-          '-y',
-          '-i', input,
+          ...commonInput,
           '-filter_complex',
           '[0:v]fps=12,scale=720:-1:flags=lanczos,split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse',
           '-loop', '0',
           output,
         ],
+      VideoOperation.resize => [
+          ...commonInput,
+          '-map', '0:v:0',
+          '-map', '0:a?',
+          '-vf', 'scale=-2:$resizeHeight',
+          '-c:v', 'libx264',
+          '-preset', 'veryfast',
+          '-crf', '23',
+          '-pix_fmt', 'yuv420p',
+          '-c:a', 'aac',
+          '-b:a', '128k',
+          '-movflags', '+faststart',
+          output,
+        ],
+      VideoOperation.trim => [
+          '-y',
+          '-i', input,
+          '-ss', trimStartSeconds.toStringAsFixed(3),
+          '-t', math.max(0.1, trimEndSeconds - trimStartSeconds).toStringAsFixed(3),
+          '-map', '0:v:0',
+          '-map', '0:a?',
+          '-c:v', 'libx264',
+          '-preset', 'veryfast',
+          '-crf', '23',
+          '-pix_fmt', 'yuv420p',
+          '-c:a', 'aac',
+          '-b:a', '128k',
+          '-movflags', '+faststart',
+          output,
+        ],
+      VideoOperation.changeFps => [
+          ...commonInput,
+          '-map', '0:v:0',
+          '-map', '0:a?',
+          '-vf', 'fps=$targetFps',
+          '-c:v', 'libx264',
+          '-preset', 'veryfast',
+          '-crf', '23',
+          '-pix_fmt', 'yuv420p',
+          '-c:a', 'aac',
+          '-b:a', '128k',
+          '-movflags', '+faststart',
+          output,
+        ],
     };
+  }
+
+  List<String> _targetSizeArguments({
+    required String input,
+    required String output,
+    required double durationSeconds,
+    required double targetSizeMb,
+  }) {
+    final safeDuration = math.max(1.0, durationSeconds);
+    final safeTarget = math.max(1.0, targetSizeMb);
+
+    // Gunakan 88% dari budget agar output cenderung tetap di bawah target
+    // setelah memperhitungkan mux/container overhead dan variasi encoder.
+    final totalKbps = ((safeTarget * 1024 * 1024 * 8 * 0.88) /
+            safeDuration /
+            1000)
+        .floor();
+    final audioKbps = math.max(48, math.min(128, (totalKbps * 0.12).floor()));
+    final videoKbps = math.max(100, totalKbps - audioKbps);
+
+    return [
+      '-y',
+      '-i', input,
+      '-map', '0:v:0',
+      '-map', '0:a?',
+      '-c:v', 'libx264',
+      '-preset', 'veryfast',
+      '-b:v', '${videoKbps}k',
+      '-maxrate', '${videoKbps}k',
+      '-bufsize', '${videoKbps * 2}k',
+      '-pix_fmt', 'yuv420p',
+      '-c:a', 'aac',
+      '-b:a', '${audioKbps}k',
+      '-movflags', '+faststart',
+      output,
+    ];
   }
 
   double? _parseFrameRate(String? value) {

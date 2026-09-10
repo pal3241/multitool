@@ -15,6 +15,11 @@ abstract class VideoEngine {
     required MediaLocation output,
     required CompressionPreset compressionPreset,
     required double durationSeconds,
+    required double targetSizeMb,
+    required int resizeHeight,
+    required int targetFps,
+    required double trimStartSeconds,
+    required double trimEndSeconds,
     required ProgressCallback onProgress,
     required LogCallback onLog,
   });

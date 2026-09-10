@@ -1,7 +1,7 @@
 name: fileforge
-description: Offline cross-platform file toolbox. v0.1 starts with video tools.
+description: Offline cross-platform file toolbox for Windows and Android.
 publish_to: "none"
-version: 0.1.0+1
+version: 0.2.0+2
 
 environment:
   sdk: ">=3.10.0 <4.0.0"

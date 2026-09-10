@@ -1,15 +1,20 @@
 # FileForge
 
-FileForge adalah aplikasi multi-tool file **offline-first** untuk Windows dan Android. Semua pemrosesan media dilakukan lokal di perangkat; file pengguna tidak perlu di-upload ke server.(saya miskin jadi tidak ada server)
+FileForge adalah aplikasi multi-tool file **offline-first** untuk Windows dan Android. Semua pemrosesan media dilakukan lokal di perangkat; file pengguna tidak perlu di-upload ke server.
 
-## Video Toolkit v0.1
+## Video Toolkit v0.2
 
-Fitur yang sudah tersedia:
+Fitur saat ini:
 
 - Video Info via FFprobe
 - Compress Video: High Quality / Balanced / Smallest
+- Target Size compression berdasarkan batas MB
+- WhatsApp preset: 720p, 30 FPS, H.264 + AAC
+- Resize Video: 1080p / 720p / 480p
+- Trim / Cut berdasarkan start dan end time
+- Change FPS: 24 / 30 / 60 FPS
 - Extract Audio → MP3
-- Convert Video → MP4 (H.264 + AAC)
+- Convert Video → MP4
 - Remove Audio
 - Video → GIF
 - Progress pemrosesan
@@ -22,60 +27,41 @@ Fitur yang sudah tersedia:
 
 Pengguna akhir **tidak menjalankan BAT, PowerShell, Python, Flutter, atau FFmpeg secara manual**.
 
-GitHub Actions otomatis membangun aplikasi setiap ada push ke branch `main`:
+### Windows
 
-- `FileForge-Android` — berisi APK universal dan APK per ABI.
-- `FileForge-Windows-x64` — berisi ZIP aplikasi Windows. Ekstrak ZIP lalu jalankan `fileforge.exe`.
+Download `FileForge-Setup-v0.2.0.exe` dari GitHub Releases lalu jalankan installer. Installer akan:
 
-> Windows Flutter membutuhkan DLL dan folder `data` di sebelah executable. Karena itu distribusi Windows diberikan sebagai satu ZIP portable, bukan hanya satu file EXE yang dipisahkan dari dependensinya.
+- memasang FileForge ke Windows,
+- membuat shortcut Desktop,
+- membuat shortcut Start Menu,
+- menyediakan uninstaller,
+- menawarkan menjalankan FileForge setelah instalasi selesai.
 
-## Android
+Versi portable `FileForge-Windows-portable-v0.2.0.zip` juga tersedia.
 
-Minimum Android: API 24 (Android 7.0).
+Target: Windows 10/11 x86-64.
 
-Artifact Android berisi:
+### Android
 
-- `FileForge-Android-universal.apk` — paling mudah dipasang, mendukung beberapa ABI tetapi ukuran lebih besar.
-- `FileForge-Android-arm64-v8a.apk` — pilihan utama untuk mayoritas HP Android modern.
-- `FileForge-Android-armeabi-v7a.apk` — perangkat ARM 32-bit lama.
-- `FileForge-Android-x86_64.apk` — emulator/perangkat x86_64.
+APK adalah installer native Android. Setelah terpasang, FileForge muncul sebagai aplikasi normal dengan launcher entry `FileForge`.
 
-## Windows
+Minimum Android: API 24 / Android 7.0.
 
-Target saat ini: Windows 10/11 x86-64.
+Pilihan APK:
 
-Setelah mengunduh artifact `FileForge-Windows-x64`:
-
-1. Ekstrak ZIP.
-2. Buka folder hasil ekstrak.
-3. Jalankan `fileforge.exe`.
-
-Tidak membutuhkan script `.bat` untuk penggunaan aplikasi.
+- `FileForge-Android-arm64-v8a-v0.2.0.apk` — direkomendasikan untuk mayoritas HP modern.
+- `FileForge-Android-universal-v0.2.0.apk` — kompatibilitas luas, ukuran lebih besar.
+- `FileForge-Android-armeabi-v7a-v0.2.0.apk` — ARM 32-bit.
+- `FileForge-Android-x86_64-v0.2.0.apk` — x86_64/emulator.
 
 ## Arsitektur
-
-```text
-lib/
-├─ core/
-│  ├─ models/
-│  └─ services/
-├─ features/
-│  ├─ home/
-│  └─ video/
-│     ├─ controllers/
-│     ├─ models/
-│     ├─ services/
-│     └─ widgets/
-├─ app.dart
-└─ main.dart
-```
-
-Alur Video Toolkit:
 
 ```text
 UI → VideoController → VideoEngine → FFmpeg / FFprobe
                  ↘ MediaPickerService
 ```
+
+Project tetap modular sehingga Image, PDF, Audio, dan tool lain dapat ditambahkan tanpa menumpuk semuanya di satu file.
 
 ## Teknologi
 
@@ -83,8 +69,12 @@ UI → VideoController → VideoEngine → FFmpeg / FFprobe
 - `ffmpeg_kit_flutter_new` 4.6.2
 - FFmpeg 8.1.2 Full-GPL
 - `file_picker`
+- Inno Setup untuk installer Windows
+- GitHub Actions untuk build dan GitHub Release
 
-FFmpegKit saat ini mendukung Android API 24+ dan Windows 10+ x86-64. Native FFmpeg dibundel ke hasil aplikasi saat proses build, sehingga runtime pemrosesan video berlangsung lokal.
+## Target-size compression
+
+Target size dihitung dari durasi dan budget bitrate dengan margin aman. Ini dirancang agar hasil cenderung berada di bawah batas yang diminta, tetapi ukuran final dapat sedikit berbeda karena overhead container dan karakteristik video.
 
 ## Compression preset
 
@@ -98,15 +88,10 @@ Video dikodekan menggunakan H.264 `libx264`, audio menggunakan AAC.
 
 ## Lisensi FFmpeg
 
-Prototype menggunakan paket FFmpeg Full-GPL karena membutuhkan codec seperti x264. Distribusi publik harus mematuhi kewajiban GPL dari komponen yang dibundel.
+FileForge saat ini menggunakan paket FFmpeg Full-GPL karena membutuhkan codec seperti x264. Distribusi publik harus mematuhi kewajiban lisensi dari komponen yang dibundel.
 
 ## Roadmap
 
-- Target-size compression
-- Preset WhatsApp / Discord
-- Trim/cut
-- Resize 1080p / 720p / 480p
-- FPS converter
 - Batch queue
 - Image Toolkit
 - Images → PDF

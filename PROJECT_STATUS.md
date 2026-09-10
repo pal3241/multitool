@@ -1,6 +1,6 @@
 # FileForge Project Status
 
-## v0.1 foundation
+## v0.2
 
 - [x] Flutter cross-platform app shell
 - [x] Responsive desktop/mobile navigation
@@ -9,6 +9,11 @@
 - [x] FFmpeg/FFprobe engine abstraction
 - [x] Video metadata
 - [x] Video compression presets
+- [x] Target-size compression
+- [x] WhatsApp preset
+- [x] Resize 1080p / 720p / 480p
+- [x] Trim / Cut
+- [x] FPS converter 24 / 30 / 60
 - [x] Extract MP3
 - [x] Convert MP4
 - [x] Remove audio
@@ -17,12 +22,11 @@
 - [x] Cancel
 - [x] FFmpeg log viewer
 - [x] GitHub Actions Android APK build
-- [x] GitHub Actions Windows x64 release build
+- [x] GitHub Actions Windows x64 installer build
+- [x] Windows Desktop + Start Menu shortcuts
+- [x] GitHub Release publishing pipeline
 - [x] No BAT required for end users
-- [ ] Target-size compression
-- [ ] WhatsApp preset
-- [ ] Trim/cut
-- [ ] Resize
 - [ ] Batch queue
 - [ ] Image module
 - [ ] PDF module
+- [ ] Audio module

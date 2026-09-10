@@ -1,4 +1,4 @@
-name: Build FileForge
+name: Build and Release FileForge
 
 on:
   push:
@@ -6,13 +6,17 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
+
+env:
+  FLUTTER_VERSION: '3.47.2'
+  RELEASE_TAG: v0.2.0
 
 jobs:
   android:
     name: Android APK
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 50
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -20,22 +24,19 @@ jobs:
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.47.2'
+          flutter-version: ${{ env.FLUTTER_VERSION }}
           channel: stable
           cache: true
 
       - name: Generate Android platform files
         run: flutter create . --platforms=android --org com.pal3241 --project-name fileforge
 
-      - name: Set Android minSdk 24
+      - name: Configure Android app
         shell: python
         run: |
           from pathlib import Path
-          candidates = [
-              Path('android/app/build.gradle.kts'),
-              Path('android/app/build.gradle'),
-          ]
-          for path in candidates:
+
+          for path in [Path('android/app/build.gradle.kts'), Path('android/app/build.gradle')]:
               if not path.exists():
                   continue
               text = path.read_text(encoding='utf-8')
@@ -43,6 +44,12 @@ jobs:
               text = text.replace('minSdkVersion flutter.minSdkVersion', 'minSdkVersion 24')
               path.write_text(text, encoding='utf-8')
               print(f'Updated {path}')
+
+          manifest = Path('android/app/src/main/AndroidManifest.xml')
+          text = manifest.read_text(encoding='utf-8')
+          text = text.replace('android:label="fileforge"', 'android:label="FileForge"')
+          manifest.write_text(text, encoding='utf-8')
+          print('Configured Android launcher label: FileForge')
 
       - name: Remove generated template test
         run: rm -rf test
@@ -59,30 +66,30 @@ jobs:
       - name: Save universal APK
         run: |
           mkdir -p dist/android
-          cp build/app/outputs/flutter-apk/app-release.apk dist/android/FileForge-Android-universal.apk
+          cp build/app/outputs/flutter-apk/app-release.apk dist/android/FileForge-Android-universal-v0.2.0.apk
 
       - name: Build split APKs
         run: flutter build apk --release --split-per-abi
 
       - name: Collect split APKs
         run: |
-          cp build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk dist/android/FileForge-Android-armeabi-v7a.apk
-          cp build/app/outputs/flutter-apk/app-arm64-v8a-release.apk dist/android/FileForge-Android-arm64-v8a.apk
-          cp build/app/outputs/flutter-apk/app-x86_64-release.apk dist/android/FileForge-Android-x86_64.apk
+          cp build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk dist/android/FileForge-Android-armeabi-v7a-v0.2.0.apk
+          cp build/app/outputs/flutter-apk/app-arm64-v8a-release.apk dist/android/FileForge-Android-arm64-v8a-v0.2.0.apk
+          cp build/app/outputs/flutter-apk/app-x86_64-release.apk dist/android/FileForge-Android-x86_64-v0.2.0.apk
           ls -lh dist/android
 
       - name: Upload Android APKs
         uses: actions/upload-artifact@v4
         with:
-          name: FileForge-Android
+          name: FileForge-Android-v0.2.0
           path: dist/android/*.apk
           if-no-files-found: error
           compression-level: 0
 
   windows:
-    name: Windows x64
+    name: Windows Installer x64
     runs-on: windows-latest
-    timeout-minutes: 45
+    timeout-minutes: 55
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -90,7 +97,7 @@ jobs:
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.47.2'
+          flutter-version: ${{ env.FLUTTER_VERSION }}
           channel: stable
           cache: true
 
@@ -110,20 +117,65 @@ jobs:
       - name: Build Windows release
         run: flutter build windows --release
 
-      - name: Package Windows application
+      - name: Install Inno Setup
+        shell: pwsh
+        run: choco install innosetup --no-progress -y
+
+      - name: Build Windows installer
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path 'dist\windows' | Out-Null
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) {
+            $cmd = Get-Command ISCC.exe -ErrorAction SilentlyContinue
+            if ($null -eq $cmd) { throw 'Inno Setup compiler (ISCC.exe) not found.' }
+            $iscc = $cmd.Source
+          }
+          & $iscc 'installer\FileForge.iss'
+          if ($LASTEXITCODE -ne 0) { throw "ISCC failed with exit code $LASTEXITCODE" }
+          Get-ChildItem 'dist\windows' | Format-Table Name,Length
+
+      - name: Build portable ZIP
         shell: pwsh
         run: |
           $release = 'build\windows\x64\runner\Release'
-          if (-not (Test-Path $release)) {
-            throw "Windows release folder not found: $release"
-          }
-          Compress-Archive -Path "$release\*" -DestinationPath 'FileForge-Windows-x64.zip' -Force
-          Get-Item 'FileForge-Windows-x64.zip' | Format-List Name,Length
+          Compress-Archive -Path "$release\*" -DestinationPath 'dist\windows\FileForge-Windows-portable-v0.2.0.zip' -Force
 
-      - name: Upload Windows application
+      - name: Upload Windows installer
         uses: actions/upload-artifact@v4
         with:
-          name: FileForge-Windows-x64
-          path: FileForge-Windows-x64.zip
+          name: FileForge-Windows-v0.2.0
+          path: dist/windows/*
           if-no-files-found: error
           compression-level: 0
+
+  release:
+    name: Publish GitHub Release v0.2.0
+    needs: [android, windows]
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && contains(github.event.head_commit.message, '[release v0.2.0]')
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release-assets
+          merge-multiple: true
+
+      - name: Show release files
+        run: ls -lah release-assets
+
+      - name: Create or update GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            gh release upload "$RELEASE_TAG" release-assets/* --clobber
+          else
+            gh release create "$RELEASE_TAG" release-assets/* \
+              --target "$GITHUB_SHA" \
+              --title "FileForge v0.2.0" \
+              --notes-file RELEASE_NOTES_v0.2.0.md
+          fi

@@ -19,6 +19,11 @@ class VideoController extends ChangeNotifier {
   MediaLocation? input;
   VideoInfo? info;
   CompressionPreset preset = CompressionPreset.balanced;
+  double targetSizeMb = 15;
+  int resizeHeight = 720;
+  int targetFps = 30;
+  double trimStartSeconds = 0;
+  double trimEndSeconds = 0;
   bool isPicking = false;
   bool isProcessing = false;
   double progress = 0;
@@ -42,10 +47,13 @@ class VideoController extends ChangeNotifier {
       input = picked;
       info = null;
       lastOutput = null;
+      progress = 0;
       status = 'Membaca informasi video...';
       notifyListeners();
 
       info = await _engine.probe(picked);
+      trimStartSeconds = 0;
+      trimEndSeconds = info!.durationSeconds;
       status = 'Video siap diproses.';
     } catch (e) {
       status = 'Gagal membaca video: $e';
@@ -60,18 +68,64 @@ class VideoController extends ChangeNotifier {
     notifyListeners();
   }
 
+  void setTargetSizeMb(double value) {
+    if (value > 0) targetSizeMb = value;
+  }
+
+  void setResizeHeight(int value) {
+    if (value > 0) {
+      resizeHeight = value;
+      notifyListeners();
+    }
+  }
+
+  void setTargetFps(int value) {
+    if (value > 0) {
+      targetFps = value;
+      notifyListeners();
+    }
+  }
+
+  void setTrimRange({double? start, double? end}) {
+    if (start != null && start >= 0) trimStartSeconds = start;
+    if (end != null && end >= 0) trimEndSeconds = end;
+  }
+
   Future<void> run(VideoOperation operation) async {
     final source = input;
     final videoInfo = info;
     if (source == null || videoInfo == null || isProcessing) return;
 
+    if (operation == VideoOperation.targetSize && targetSizeMb <= 0) {
+      status = 'Target ukuran harus lebih dari 0 MB.';
+      notifyListeners();
+      return;
+    }
+
+    if (operation == VideoOperation.trim) {
+      final end = trimEndSeconds <= 0 ? videoInfo.durationSeconds : trimEndSeconds;
+      if (trimStartSeconds < 0 ||
+          trimStartSeconds >= end ||
+          end > videoInfo.durationSeconds + 0.05) {
+        status = 'Range trim tidak valid. Pastikan Start < End dan tidak melewati durasi video.';
+        notifyListeners();
+        return;
+      }
+      trimEndSeconds = end;
+    }
+
     final base = _withoutExtension(source.displayName);
     final suffix = switch (operation) {
       VideoOperation.compress => '_compressed',
+      VideoOperation.targetSize => '_target_${targetSizeMb.toStringAsFixed(0)}mb',
+      VideoOperation.whatsapp => '_whatsapp',
       VideoOperation.extractAudio => '_audio',
       VideoOperation.convertMp4 => '_converted',
       VideoOperation.removeAudio => '_mute',
       VideoOperation.toGif => '',
+      VideoOperation.resize => '_${resizeHeight}p',
+      VideoOperation.trim => '_trimmed',
+      VideoOperation.changeFps => '_${targetFps}fps',
     };
     final suggested = '$base$suffix.${operation.extension}';
 
@@ -93,13 +147,22 @@ class VideoController extends ChangeNotifier {
     status = '${operation.title} sedang berjalan...';
     notifyListeners();
 
+    final processDuration = operation == VideoOperation.trim
+        ? (trimEndSeconds - trimStartSeconds)
+        : videoInfo.durationSeconds;
+
     try {
       final result = await _engine.process(
         operation: operation,
         input: source,
         output: output,
         compressionPreset: preset,
-        durationSeconds: videoInfo.durationSeconds,
+        durationSeconds: processDuration,
+        targetSizeMb: targetSizeMb,
+        resizeHeight: resizeHeight,
+        targetFps: targetFps,
+        trimStartSeconds: trimStartSeconds,
+        trimEndSeconds: trimEndSeconds,
         onProgress: (value) {
           progress = value;
           notifyListeners();

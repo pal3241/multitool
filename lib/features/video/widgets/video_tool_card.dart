@@ -15,10 +15,15 @@ class VideoToolCard extends StatelessWidget {
 
   IconData get _icon => switch (operation) {
         VideoOperation.compress => Icons.compress_rounded,
+        VideoOperation.targetSize => Icons.data_saver_on_rounded,
+        VideoOperation.whatsapp => Icons.chat_rounded,
         VideoOperation.extractAudio => Icons.audiotrack_rounded,
         VideoOperation.convertMp4 => Icons.sync_alt_rounded,
         VideoOperation.removeAudio => Icons.volume_off_rounded,
         VideoOperation.toGif => Icons.gif_box_rounded,
+        VideoOperation.resize => Icons.aspect_ratio_rounded,
+        VideoOperation.trim => Icons.content_cut_rounded,
+        VideoOperation.changeFps => Icons.speed_rounded,
       };
 
   @override
