@@ -114,14 +114,20 @@ class MediaPickerService {
   Future<String?> _usablePath(PlatformFile file) async {
     if (file.path != null && file.path!.isNotEmpty) return file.path;
 
-    // Fallback untuk provider Android yang tidak memberikan path langsung:
-    // stream file ke cache lokal agar FFmpeg tetap dapat membacanya offline.
+    // Fallback untuk provider yang tidak memberikan path langsung:
+    // salin stream ke cache lokal agar FFmpeg tetap dapat membacanya offline.
     try {
       final safeName = file.name.replaceAll(RegExp(r'[^A-Za-z0-9._-]'), '_');
       final path = '${Directory.systemTemp.path}${Platform.pathSeparator}'
           'fileforge_${DateTime.now().microsecondsSinceEpoch}_$safeName';
       final sink = File(path).openWrite();
-      await file.readAsByteStream().pipe(sink);
+      try {
+        await for (final chunk in file.readAsByteStream()) {
+          sink.add(chunk);
+        }
+      } finally {
+        await sink.close();
+      }
       return path;
     } catch (_) {
       return null;
