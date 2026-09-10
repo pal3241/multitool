@@ -33,7 +33,7 @@ class VideoInfo {
   }
 
   String get resolutionLabel =>
-      width == null || height == null ? '-' : '${width}×$height';
+      width == null || height == null ? '-' : '$width×$height';
 
   String get sizeLabel {
     if (sizeBytes == null) return '-';

@@ -15,7 +15,7 @@ class FfmpegVideoEngine implements VideoEngine {
   @override
   Future<VideoInfo> probe(MediaLocation input) async {
     final session = await FFprobeKit.getMediaInformation(input.ffmpegPath);
-    final information = await session.getMediaInformation();
+    final information = session.getMediaInformation();
     if (information == null) {
       final output = await session.getOutput();
       throw StateError('FFprobe gagal membaca video. ${output ?? ''}'.trim());

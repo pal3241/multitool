@@ -44,6 +44,9 @@ jobs:
               path.write_text(text, encoding='utf-8')
               print(f'Updated {path}')
 
+      - name: Remove generated template test
+        run: rm -rf test
+
       - name: Get dependencies
         run: flutter pub get
 
@@ -93,6 +96,10 @@ jobs:
 
       - name: Generate Windows platform files
         run: flutter create . --platforms=windows --org com.pal3241 --project-name fileforge
+
+      - name: Remove generated template test
+        shell: pwsh
+        run: if (Test-Path test) { Remove-Item test -Recurse -Force }
 
       - name: Get dependencies
         run: flutter pub get

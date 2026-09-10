@@ -19,13 +19,11 @@ class MediaPickerService {
       );
     }
 
-    final result = await FilePicker.platform.pickFiles(
+    final file = await FilePicker.pickFile(
       type: FileType.video,
-      allowMultiple: false,
     );
-    if (result == null || result.files.isEmpty) return null;
+    if (file == null) return null;
 
-    final file = result.files.single;
     final path = file.path;
     if (path == null) return null;
 
@@ -53,17 +51,16 @@ class MediaPickerService {
       );
     }
 
-    final path = await FilePicker.platform.saveFile(
-      dialogTitle: 'Save output',
-      fileName: suggestedName,
-      type: FileType.custom,
-      allowedExtensions: [extension],
+    final directory = await FilePicker.getDirectoryPath(
+      dialogTitle: 'Pilih folder output',
     );
-    if (path == null) return null;
+    if (directory == null) return null;
 
+    final path = '$directory${Platform.pathSeparator}$suggestedName';
+    final finalPath = _ensureExtension(path, extension);
     return MediaLocation(
-      ffmpegPath: _ensureExtension(path, extension),
-      displayName: _basename(_ensureExtension(path, extension)),
+      ffmpegPath: finalPath,
+      displayName: _basename(finalPath),
     );
   }
 
