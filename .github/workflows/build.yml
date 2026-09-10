@@ -10,7 +10,7 @@ permissions:
 
 env:
   FLUTTER_VERSION: '3.47.2'
-  RELEASE_TAG: v0.2.0
+  RELEASE_TAG: v0.2.1
 
 jobs:
   android:
@@ -35,7 +35,6 @@ jobs:
         shell: python
         run: |
           from pathlib import Path
-
           for path in [Path('android/app/build.gradle.kts'), Path('android/app/build.gradle')]:
               if not path.exists():
                   continue
@@ -44,12 +43,10 @@ jobs:
               text = text.replace('minSdkVersion flutter.minSdkVersion', 'minSdkVersion 24')
               path.write_text(text, encoding='utf-8')
               print(f'Updated {path}')
-
           manifest = Path('android/app/src/main/AndroidManifest.xml')
           text = manifest.read_text(encoding='utf-8')
           text = text.replace('android:label="fileforge"', 'android:label="FileForge"')
           manifest.write_text(text, encoding='utf-8')
-          print('Configured Android launcher label: FileForge')
 
       - name: Remove generated template test
         run: rm -rf test
@@ -66,22 +63,21 @@ jobs:
       - name: Save universal APK
         run: |
           mkdir -p dist/android
-          cp build/app/outputs/flutter-apk/app-release.apk dist/android/FileForge-Android-universal-v0.2.0.apk
+          cp build/app/outputs/flutter-apk/app-release.apk dist/android/FileForge-Android-universal-v0.2.1.apk
 
       - name: Build split APKs
         run: flutter build apk --release --split-per-abi
 
       - name: Collect split APKs
         run: |
-          cp build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk dist/android/FileForge-Android-armeabi-v7a-v0.2.0.apk
-          cp build/app/outputs/flutter-apk/app-arm64-v8a-release.apk dist/android/FileForge-Android-arm64-v8a-v0.2.0.apk
-          cp build/app/outputs/flutter-apk/app-x86_64-release.apk dist/android/FileForge-Android-x86_64-v0.2.0.apk
-          ls -lh dist/android
+          cp build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk dist/android/FileForge-Android-armeabi-v7a-v0.2.1.apk
+          cp build/app/outputs/flutter-apk/app-arm64-v8a-release.apk dist/android/FileForge-Android-arm64-v8a-v0.2.1.apk
+          cp build/app/outputs/flutter-apk/app-x86_64-release.apk dist/android/FileForge-Android-x86_64-v0.2.1.apk
 
       - name: Upload Android APKs
         uses: actions/upload-artifact@v4
         with:
-          name: FileForge-Android-v0.2.0
+          name: FileForge-Android-v0.2.1
           path: dist/android/*.apk
           if-no-files-found: error
           compression-level: 0
@@ -133,27 +129,26 @@ jobs:
           }
           & $iscc 'installer\FileForge.iss'
           if ($LASTEXITCODE -ne 0) { throw "ISCC failed with exit code $LASTEXITCODE" }
-          Get-ChildItem 'dist\windows' | Format-Table Name,Length
 
       - name: Build portable ZIP
         shell: pwsh
         run: |
           $release = 'build\windows\x64\runner\Release'
-          Compress-Archive -Path "$release\*" -DestinationPath 'dist\windows\FileForge-Windows-portable-v0.2.0.zip' -Force
+          Compress-Archive -Path "$release\*" -DestinationPath 'dist\windows\FileForge-Windows-portable-v0.2.1.zip' -Force
 
       - name: Upload Windows installer
         uses: actions/upload-artifact@v4
         with:
-          name: FileForge-Windows-v0.2.0
+          name: FileForge-Windows-v0.2.1
           path: dist/windows/*
           if-no-files-found: error
           compression-level: 0
 
   release:
-    name: Publish GitHub Release v0.2.0
+    name: Publish GitHub Release v0.2.1
     needs: [android, windows]
     runs-on: ubuntu-latest
-    if: github.event_name == 'push' && contains(github.event.head_commit.message, '[release v0.2.0]')
+    if: github.event_name == 'push' && contains(github.event.head_commit.message, '[release v0.2.1]')
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -176,6 +171,6 @@ jobs:
           else
             gh release create "$RELEASE_TAG" release-assets/* \
               --target "$GITHUB_SHA" \
-              --title "FileForge v0.2.0" \
-              --notes-file RELEASE_NOTES_v0.2.0.md
+              --title "FileForge v0.2.1" \
+              --notes-file RELEASE_NOTES_v0.2.1.md
           fi

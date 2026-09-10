@@ -26,10 +26,15 @@ class VideoController extends ChangeNotifier {
   double trimEndSeconds = 0;
   bool isPicking = false;
   bool isProcessing = false;
+  bool _cancelRequested = false;
   double progress = 0;
   String status = 'Pilih video untuk memulai.';
   String? lastOutput;
   final List<String> logs = [];
+
+  final List<MediaLocation> batchInputs = [];
+  int batchCompleted = 0;
+  int batchSucceeded = 0;
 
   Future<void> pickVideo() async {
     if (isProcessing) return;
@@ -61,6 +66,45 @@ class VideoController extends ChangeNotifier {
       isPicking = false;
       notifyListeners();
     }
+  }
+
+  Future<void> pickBatchVideos() async {
+    if (isProcessing) return;
+    isPicking = true;
+    status = 'Memilih beberapa video...';
+    notifyListeners();
+
+    try {
+      final picked = await _picker.pickVideos();
+      if (picked.isEmpty) {
+        status = batchInputs.isEmpty
+            ? 'Tidak ada video batch dipilih.'
+            : 'Pemilihan batch dibatalkan.';
+        return;
+      }
+      batchInputs
+        ..clear()
+        ..addAll(picked);
+      batchCompleted = 0;
+      batchSucceeded = 0;
+      progress = 0;
+      status = '${batchInputs.length} video masuk antrean batch.';
+    } catch (e) {
+      status = 'Gagal memilih batch: $e';
+    } finally {
+      isPicking = false;
+      notifyListeners();
+    }
+  }
+
+  void clearBatch() {
+    if (isProcessing) return;
+    batchInputs.clear();
+    batchCompleted = 0;
+    batchSucceeded = 0;
+    progress = 0;
+    status = 'Antrean batch dikosongkan.';
+    notifyListeners();
   }
 
   void setPreset(CompressionPreset value) {
@@ -141,6 +185,7 @@ class VideoController extends ChangeNotifier {
     }
 
     isProcessing = true;
+    _cancelRequested = false;
     progress = 0;
     logs.clear();
     lastOutput = null;
@@ -167,26 +212,118 @@ class VideoController extends ChangeNotifier {
           progress = value;
           notifyListeners();
         },
-        onLog: (message) {
-          logs.add(message);
-          if (logs.length > 120) logs.removeAt(0);
-          notifyListeners();
-        },
+        onLog: _addLog,
       );
       _applyResult(result);
     } catch (e) {
       status = 'Proses gagal: $e';
     } finally {
       isProcessing = false;
+      _cancelRequested = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> runBatchCompress() async {
+    if (batchInputs.isEmpty || isProcessing) return;
+
+    final names = batchInputs.map((source) {
+      final base = _withoutExtension(source.displayName);
+      return '${base}_compressed.mp4';
+    }).toList();
+
+    status = 'Pilih lokasi output batch...';
+    notifyListeners();
+
+    final outputs = await _picker.chooseBatchOutputs(
+      suggestedNames: names,
+      extension: 'mp4',
+      mimeType: 'video/mp4',
+    );
+    if (outputs == null || outputs.length != batchInputs.length) {
+      status = 'Penyimpanan batch dibatalkan.';
+      notifyListeners();
+      return;
+    }
+
+    isProcessing = true;
+    _cancelRequested = false;
+    batchCompleted = 0;
+    batchSucceeded = 0;
+    progress = 0;
+    logs.clear();
+    notifyListeners();
+
+    try {
+      for (var i = 0; i < batchInputs.length; i++) {
+        if (_cancelRequested) break;
+
+        final source = batchInputs[i];
+        final output = outputs[i];
+        status = 'Batch ${i + 1}/${batchInputs.length}: ${source.displayName}';
+        notifyListeners();
+
+        try {
+          final mediaInfo = await _engine.probe(source);
+          final result = await _engine.process(
+            operation: VideoOperation.compress,
+            input: source,
+            output: output,
+            compressionPreset: preset,
+            durationSeconds: mediaInfo.durationSeconds,
+            targetSizeMb: targetSizeMb,
+            resizeHeight: resizeHeight,
+            targetFps: targetFps,
+            trimStartSeconds: 0,
+            trimEndSeconds: mediaInfo.durationSeconds,
+            onProgress: (itemProgress) {
+              progress = (i + itemProgress) / batchInputs.length;
+              notifyListeners();
+            },
+            onLog: _addLog,
+          );
+
+          if (result.success) {
+            batchSucceeded++;
+          } else if (result.cancelled) {
+            _cancelRequested = true;
+          } else {
+            _addLog('Gagal ${source.displayName}: ${result.message}');
+          }
+        } catch (e) {
+          _addLog('Gagal ${source.displayName}: $e');
+        }
+
+        batchCompleted = i + 1;
+        progress = batchCompleted / batchInputs.length;
+        notifyListeners();
+      }
+
+      if (_cancelRequested) {
+        status = 'Batch dibatalkan: $batchSucceeded berhasil dari $batchCompleted diproses.';
+      } else {
+        progress = 1;
+        status = 'Batch selesai: $batchSucceeded/${batchInputs.length} video berhasil.';
+      }
+    } finally {
+      isProcessing = false;
+      _cancelRequested = false;
       notifyListeners();
     }
   }
 
   Future<void> cancel() async {
     if (!isProcessing) return;
+    _cancelRequested = true;
     status = 'Membatalkan...';
     notifyListeners();
     await _engine.cancel();
+  }
+
+  void _addLog(String message) {
+    logs.add(message);
+    if (logs.length > 160) logs.removeAt(0);
+    notifyListeners();
   }
 
   void _applyResult(ProcessResult result) {

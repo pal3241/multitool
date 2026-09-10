@@ -253,6 +253,106 @@ class _VideoPageState extends State<VideoPage> {
             ),
           ),
         ),
+        const SizedBox(height: 16),
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(18),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Icon(Icons.queue_play_next_rounded, size: 28),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Batch Compress',
+                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                  fontWeight: FontWeight.w700,
+                                ),
+                          ),
+                          Text(
+                            'Pilih banyak video dan kompres satu per satu dengan preset Compress aktif.',
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+                Text(
+                  controller.batchInputs.isEmpty
+                      ? 'Belum ada video dalam antrean.'
+                      : '${controller.batchInputs.length} video dalam antrean • '
+                        '${controller.batchSucceeded} berhasil / ${controller.batchCompleted} diproses',
+                ),
+                if (controller.batchInputs.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    children: controller.batchInputs
+                        .take(6)
+                        .map((item) => Chip(
+                              visualDensity: VisualDensity.compact,
+                              label: SizedBox(
+                                width: 150,
+                                child: Text(
+                                  item.displayName,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ))
+                        .toList(),
+                  ),
+                  if (controller.batchInputs.length > 6)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 6),
+                      child: Text('+${controller.batchInputs.length - 6} video lainnya'),
+                    ),
+                ],
+                const SizedBox(height: 14),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    OutlinedButton.icon(
+                      onPressed: controller.isPicking || controller.isProcessing
+                          ? null
+                          : controller.pickBatchVideos,
+                      icon: const Icon(Icons.video_library_rounded),
+                      label: const Text('Pilih Banyak Video'),
+                    ),
+                    FilledButton.icon(
+                      onPressed: controller.batchInputs.isEmpty || controller.isProcessing
+                          ? null
+                          : controller.runBatchCompress,
+                      icon: const Icon(Icons.compress_rounded),
+                      label: const Text('Mulai Batch'),
+                    ),
+                    if (controller.batchInputs.isNotEmpty)
+                      TextButton.icon(
+                        onPressed: controller.isProcessing ? null : controller.clearBatch,
+                        icon: const Icon(Icons.clear_all_rounded),
+                        label: const Text('Clear'),
+                      ),
+                  ],
+                ),
+                if (Theme.of(context).platform == TargetPlatform.android) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    'Android akan meminta lokasi simpan untuk setiap output agar tetap memakai Storage Access Framework tanpa izin akses semua file.',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
         const SizedBox(height: 20),
         Row(
           children: [

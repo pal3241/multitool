@@ -19,15 +19,26 @@ class MediaPickerService {
       );
     }
 
-    final file = await FilePicker.pickFile(
-      type: FileType.video,
-    );
+    final file = await FilePicker.pickFile(type: FileType.video);
     if (file == null) return null;
 
-    final path = file.path;
+    final path = await _usablePath(file);
     if (path == null) return null;
 
     return MediaLocation(ffmpegPath: path, displayName: file.name);
+  }
+
+  Future<List<MediaLocation>> pickVideos() async {
+    final files = await FilePicker.pickFiles(type: FileType.video);
+    if (files.isEmpty) return const [];
+
+    final result = <MediaLocation>[];
+    for (final file in files) {
+      final path = await _usablePath(file);
+      if (path == null) continue;
+      result.add(MediaLocation(ffmpegPath: path, displayName: file.name));
+    }
+    return result;
   }
 
   Future<MediaLocation?> chooseOutput({
@@ -62,6 +73,59 @@ class MediaPickerService {
       ffmpegPath: finalPath,
       displayName: _basename(finalPath),
     );
+  }
+
+  Future<List<MediaLocation>?> chooseBatchOutputs({
+    required List<String> suggestedNames,
+    required String extension,
+    required String mimeType,
+  }) async {
+    if (suggestedNames.isEmpty) return const [];
+
+    if (Platform.isAndroid) {
+      final outputs = <MediaLocation>[];
+      for (final name in suggestedNames) {
+        final output = await chooseOutput(
+          suggestedName: name,
+          extension: extension,
+          mimeType: mimeType,
+        );
+        if (output == null) return null;
+        outputs.add(output);
+      }
+      return outputs;
+    }
+
+    final directory = await FilePicker.getDirectoryPath(
+      dialogTitle: 'Pilih folder output batch',
+    );
+    if (directory == null) return null;
+
+    return suggestedNames.map((name) {
+      final path = '$directory${Platform.pathSeparator}$name';
+      final finalPath = _ensureExtension(path, extension);
+      return MediaLocation(
+        ffmpegPath: finalPath,
+        displayName: _basename(finalPath),
+      );
+    }).toList();
+  }
+
+  Future<String?> _usablePath(PlatformFile file) async {
+    if (file.path != null && file.path!.isNotEmpty) return file.path;
+
+    // Fallback untuk provider Android yang tidak memberikan path langsung:
+    // stream file ke cache lokal agar FFmpeg tetap dapat membacanya offline.
+    try {
+      final safeName = file.name.replaceAll(RegExp(r'[^A-Za-z0-9._-]'), '_');
+      final path = '${Directory.systemTemp.path}${Platform.pathSeparator}'
+          'fileforge_${DateTime.now().microsecondsSinceEpoch}_$safeName';
+      final sink = File(path).openWrite();
+      await file.readAsByteStream().pipe(sink);
+      return path;
+    } catch (_) {
+      return null;
+    }
   }
 
   String _androidDisplayName(String uri) {

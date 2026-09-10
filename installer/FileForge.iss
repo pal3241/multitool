@@ -1,5 +1,5 @@
 #define MyAppName "FileForge"
-#define MyAppVersion "0.2.0"
+#define MyAppVersion "0.2.1"
 #define MyAppPublisher "pal3241"
 #define MyAppExeName "fileforge.exe"
 
@@ -15,12 +15,12 @@ PrivilegesRequired=admin
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 OutputDir=..\dist\windows
-OutputBaseFilename=FileForge-Setup-v0.2.0
+OutputBaseFilename=FileForge-Setup-v0.2.1
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
 UninstallDisplayIcon={app}\{#MyAppExeName}
-VersionInfoVersion=0.2.0.0
+VersionInfoVersion=0.2.1.0
 VersionInfoProductName={#MyAppName}
 VersionInfoProductVersion={#MyAppVersion}
 VersionInfoCompany={#MyAppPublisher}

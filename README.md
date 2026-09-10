@@ -2,7 +2,7 @@
 
 FileForge adalah aplikasi multi-tool file **offline-first** untuk Windows dan Android. Semua pemrosesan media dilakukan lokal di perangkat; file pengguna tidak perlu di-upload ke server.
 
-## Video Toolkit v0.2
+## Video Toolkit v0.2.1
 
 Fitur saat ini:
 
@@ -13,46 +13,39 @@ Fitur saat ini:
 - Resize Video: 1080p / 720p / 480p
 - Trim / Cut berdasarkan start dan end time
 - Change FPS: 24 / 30 / 60 FPS
+- Batch Compress queue untuk banyak video
 - Extract Audio → MP3
 - Convert Video → MP4
 - Remove Audio
 - Video → GIF
-- Progress pemrosesan
-- Cancel proses
+- Progress pemrosesan + cancel
 - FFmpeg log untuk debugging
 - Android Storage Access Framework (SAF)
 - Windows native file picker/save dialog
 
-## Aplikasi siap pakai
+## Batch Compress
 
-Pengguna akhir **tidak menjalankan BAT, PowerShell, Python, Flutter, atau FFmpeg secara manual**.
+Batch Compress memproses antrean secara sequential supaya penggunaan RAM/CPU lebih aman di laptop maupun HP.
 
-### Windows
+- Windows: pilih banyak video, lalu pilih satu folder output.
+- Android: pilih banyak video; lokasi output diminta per file agar aplikasi tetap memakai storage model yang aman tanpa meminta izin akses semua file.
 
-Download `FileForge-Setup-v0.2.0.exe` dari GitHub Releases lalu jalankan installer. Installer akan:
+## Windows
 
-- memasang FileForge ke Windows,
-- membuat shortcut Desktop,
-- membuat shortcut Start Menu,
-- menyediakan uninstaller,
-- menawarkan menjalankan FileForge setelah instalasi selesai.
+Download `FileForge-Setup-v0.2.1.exe` dari GitHub Releases lalu jalankan installer. Installer akan memasang aplikasi, membuat shortcut Desktop dan Start Menu, menyediakan uninstaller, dan menawarkan menjalankan FileForge setelah instalasi selesai.
 
-Versi portable `FileForge-Windows-portable-v0.2.0.zip` juga tersedia.
+Versi portable juga tersedia.
 
 Target: Windows 10/11 x86-64.
 
-### Android
+## Android
 
-APK adalah installer native Android. Setelah terpasang, FileForge muncul sebagai aplikasi normal dengan launcher entry `FileForge`.
+APK adalah installer native Android. Setelah terpasang, FileForge memiliki launcher entry `FileForge` dan muncul sebagai aplikasi normal di launcher. Minimum Android API 24 / Android 7.0.
 
-Minimum Android: API 24 / Android 7.0.
+Pilihan utama:
 
-Pilihan APK:
-
-- `FileForge-Android-arm64-v8a-v0.2.0.apk` — direkomendasikan untuk mayoritas HP modern.
-- `FileForge-Android-universal-v0.2.0.apk` — kompatibilitas luas, ukuran lebih besar.
-- `FileForge-Android-armeabi-v7a-v0.2.0.apk` — ARM 32-bit.
-- `FileForge-Android-x86_64-v0.2.0.apk` — x86_64/emulator.
+- ARM64 APK untuk mayoritas HP modern.
+- Universal APK untuk kompatibilitas beberapa ABI.
 
 ## Arsitektur
 
@@ -68,23 +61,9 @@ Project tetap modular sehingga Image, PDF, Audio, dan tool lain dapat ditambahka
 - Flutter / Dart
 - `ffmpeg_kit_flutter_new` 4.6.2
 - FFmpeg 8.1.2 Full-GPL
-- `file_picker`
+- `file_picker` 12.2.0
 - Inno Setup untuk installer Windows
 - GitHub Actions untuk build dan GitHub Release
-
-## Target-size compression
-
-Target size dihitung dari durasi dan budget bitrate dengan margin aman. Ini dirancang agar hasil cenderung berada di bawah batas yang diminta, tetapi ukuran final dapat sedikit berbeda karena overhead container dan karakteristik video.
-
-## Compression preset
-
-| Preset | CRF | Audio |
-|---|---:|---:|
-| High Quality | 23 | 160 kbps |
-| Balanced | 28 | 128 kbps |
-| Smallest | 32 | 96 kbps |
-
-Video dikodekan menggunakan H.264 `libx264`, audio menggunakan AAC.
 
 ## Lisensi FFmpeg
 
@@ -92,7 +71,6 @@ FileForge saat ini menggunakan paket FFmpeg Full-GPL karena membutuhkan codec se
 
 ## Roadmap
 
-- Batch queue
 - Image Toolkit
 - Images → PDF
 - PDF Toolkit
