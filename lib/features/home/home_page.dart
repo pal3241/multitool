@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:fileforge/features/image/image_page.dart';
 import 'package:fileforge/features/video/video_page.dart';
 
 class HomePage extends StatefulWidget {
@@ -13,7 +14,7 @@ class _HomePageState extends State<HomePage> {
 
   static const pages = <Widget>[
     VideoPage(),
-    _ComingSoonPage(title: 'Image Toolkit'),
+    ImagePage(),
     _ComingSoonPage(title: 'PDF Toolkit'),
     _ComingSoonPage(title: 'Audio Toolkit'),
   ];
@@ -68,9 +69,7 @@ class _HomePageState extends State<HomePage> {
         }
 
         return Scaffold(
-          appBar: AppBar(
-            title: const _Brand(),
-          ),
+          appBar: AppBar(title: const _Brand()),
           body: pages[index],
           bottomNavigationBar: NavigationBar(
             selectedIndex: index,

@@ -10,13 +10,13 @@ permissions:
 
 env:
   FLUTTER_VERSION: '3.47.2'
-  RELEASE_TAG: v0.2.1
+  RELEASE_TAG: v0.3.0
 
 jobs:
   android:
     name: Android APK
     runs-on: ubuntu-latest
-    timeout-minutes: 50
+    timeout-minutes: 55
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -42,7 +42,6 @@ jobs:
               text = text.replace('minSdk = flutter.minSdkVersion', 'minSdk = 24')
               text = text.replace('minSdkVersion flutter.minSdkVersion', 'minSdkVersion 24')
               path.write_text(text, encoding='utf-8')
-              print(f'Updated {path}')
           manifest = Path('android/app/src/main/AndroidManifest.xml')
           text = manifest.read_text(encoding='utf-8')
           text = text.replace('android:label="fileforge"', 'android:label="FileForge"')
@@ -63,21 +62,21 @@ jobs:
       - name: Save universal APK
         run: |
           mkdir -p dist/android
-          cp build/app/outputs/flutter-apk/app-release.apk dist/android/FileForge-Android-universal-v0.2.1.apk
+          cp build/app/outputs/flutter-apk/app-release.apk dist/android/FileForge-Android-universal-v0.3.0.apk
 
       - name: Build split APKs
         run: flutter build apk --release --split-per-abi
 
       - name: Collect split APKs
         run: |
-          cp build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk dist/android/FileForge-Android-armeabi-v7a-v0.2.1.apk
-          cp build/app/outputs/flutter-apk/app-arm64-v8a-release.apk dist/android/FileForge-Android-arm64-v8a-v0.2.1.apk
-          cp build/app/outputs/flutter-apk/app-x86_64-release.apk dist/android/FileForge-Android-x86_64-v0.2.1.apk
+          cp build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk dist/android/FileForge-Android-armeabi-v7a-v0.3.0.apk
+          cp build/app/outputs/flutter-apk/app-arm64-v8a-release.apk dist/android/FileForge-Android-arm64-v8a-v0.3.0.apk
+          cp build/app/outputs/flutter-apk/app-x86_64-release.apk dist/android/FileForge-Android-x86_64-v0.3.0.apk
 
       - name: Upload Android APKs
         uses: actions/upload-artifact@v4
         with:
-          name: FileForge-Android-v0.2.1
+          name: FileForge-Android-v0.3.0
           path: dist/android/*.apk
           if-no-files-found: error
           compression-level: 0
@@ -85,7 +84,7 @@ jobs:
   windows:
     name: Windows Installer x64
     runs-on: windows-latest
-    timeout-minutes: 55
+    timeout-minutes: 60
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -134,21 +133,21 @@ jobs:
         shell: pwsh
         run: |
           $release = 'build\windows\x64\runner\Release'
-          Compress-Archive -Path "$release\*" -DestinationPath 'dist\windows\FileForge-Windows-portable-v0.2.1.zip' -Force
+          Compress-Archive -Path "$release\*" -DestinationPath 'dist\windows\FileForge-Windows-portable-v0.3.0.zip' -Force
 
       - name: Upload Windows installer
         uses: actions/upload-artifact@v4
         with:
-          name: FileForge-Windows-v0.2.1
+          name: FileForge-Windows-v0.3.0
           path: dist/windows/*
           if-no-files-found: error
           compression-level: 0
 
   release:
-    name: Publish GitHub Release v0.2.1
+    name: Publish GitHub Release v0.3.0
     needs: [android, windows]
     runs-on: ubuntu-latest
-    if: github.event_name == 'push' && contains(github.event.head_commit.message, '[release v0.2.1]')
+    if: github.event_name == 'push' && contains(github.event.head_commit.message, '[release v0.3.0]')
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -171,6 +170,6 @@ jobs:
           else
             gh release create "$RELEASE_TAG" release-assets/* \
               --target "$GITHUB_SHA" \
-              --title "FileForge v0.2.1" \
-              --notes-file RELEASE_NOTES_v0.2.1.md
+              --title "FileForge v0.3.0" \
+              --notes-file RELEASE_NOTES_v0.3.0.md
           fi
